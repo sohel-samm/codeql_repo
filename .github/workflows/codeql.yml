@@ -103,6 +103,10 @@ jobs:
       with:
         category: "/language:${{matrix.language}}"
 
+    - name: Move SARIF file
+      run: |
+        cp /home/runner/work/_temp/combined-sarif/output-*/combined-sarif.sarif $GITHUB_WORKSPACE/combined-sarif.sarif
+
     - name: Check for CodeQL alerts
       run: |
           count=$(jq '.runs[].results | length' combined-sarif.sarif)
