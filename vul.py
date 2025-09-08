@@ -15,7 +15,7 @@ app = Flask(__name__)
 def ping():
     ip = request.args.get("ip")
     # ⚠️ Vulnerable: unsanitized user input in os.system
-    os.system("ping -c 1 " + ip)
+    os.system("ping -c 1  " + ip)
     return "Pinging " + ip
 
 # 2. SQL Injection (CWE-89)
