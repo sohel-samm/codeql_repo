@@ -105,7 +105,7 @@ jobs:
 
     - name: Check for CodeQL alerts
       run: |
-          count=$(jq '.runs[].results | length' codeql-results.sarif)
+          count=$(jq '.runs[].results | length' combined-sarif.sarif)
           echo "Number of vulnerabilities found: $count"
           if [ "$count" -gt 0 ]; then
             echo "❌ Vulnerabilities found! Failing the workflow."
