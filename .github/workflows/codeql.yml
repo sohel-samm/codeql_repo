@@ -102,3 +102,13 @@ jobs:
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"
+
+    - name: Check for CodeQL alerts
+      run: |
+          count=$(jq '.runs[].results | length' codeql-results.sarif)
+          echo "Number of vulnerabilities found: $count"
+          if [ "$count" -gt 0 ]; then
+            echo "❌ Vulnerabilities found! Failing the workflow."
+            exit 1
+          fi
+  # This assumes codeql-results.sarif is the output file from the analysis step.
