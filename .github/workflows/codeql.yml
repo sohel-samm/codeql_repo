@@ -109,10 +109,11 @@ jobs:
 
     - name: Check for CodeQL alerts
       run: |
-          count=$(jq '.runs[].results | length' combined-sarif.sarif)
-          echo "Number of vulnerabilities found: $count"
-          if [ "$count" -gt 0 ]; then
-            echo "❌ Vulnerabilities found! Failing the workflow."
-            exit 1
-          fi
+        count=$(jq '[.runs[].results[]] | length' combined-sarif.sarif)
+        echo "Number of vulnerabilities found: $count"
+        if [ "$count" -gt 0 ]; then
+          echo "❌ Vulnerabilities found! Listing details:"
+          jq -r '.runs[].results[] | "Rule: \(.ruleId)\nMessage: \(.message.text)\nSeverity: \(.level)\nLocation: \(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine)\n---"' combined-sarif.sarif
+          exit 1
+        fi
   # This assumes codeql-results.sarif is the output file from the analysis step.
