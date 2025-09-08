@@ -17,12 +17,14 @@ on:
   pull_request:
     branches: [ "feature/test" ]
   workflow_dispatch:
+  workflow_call:
   # schedule:
   #   - cron: '26 21 * * 5'
 
 jobs:
   analyze:
-    name: Analyze (${{ matrix.language }})
+    name: Analyze 
+    # (${{ matrix.language }})
     # Runner size impacts CodeQL analysis time. To learn more, please see:
     #   - https://gh.io/recommended-hardware-resources-for-running-codeql
     #   - https://gh.io/supported-runners-and-hardware-resources
@@ -40,13 +42,13 @@ jobs:
       actions: read
       contents: read
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
+    # strategy:
+    #   fail-fast: false
+    #   matrix:
+    #     include:
 
-          - language: python
-            build: none
+    #       - language: python
+    #         build: none
         # CodeQL supports the following values keywords for 'language': 'actions', 'c-cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'rust', 'swift'
         # Use `c-cpp` to analyze code written in C, C++ or both
         # Use 'java-kotlin' to analyze code written in Java, Kotlin or both
@@ -69,8 +71,10 @@ jobs:
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
-        languages: ${{ matrix.language }}
-        build-mode: ${{ matrix.build-mode }}
+        category: "/language:multi"
+          
+        # languages: ${{ matrix.language }}
+        # build-mode: ${{ matrix.build-mode }}
         # If you wish to specify custom queries, you can do so here or in a config file.
         # By default, queries listed here will override any specified in a config file.
         # Prefix the list here with "+" to use these queries and those in the config file.
@@ -98,3 +102,17 @@ jobs:
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"
+
+    - name: Move SARIF file
+      run: |
+        cp /home/runner/work/_temp/combined-sarif/output-*/combined-sarif.sarif $GITHUB_WORKSPACE/combined-sarif.sarif
+
+    - name: Check for CodeQL alerts
+      run: |
+          count=$(jq '.runs[].results | length' combined-sarif.sarif)
+          echo "Number of vulnerabilities found: $count"
+          if [ "$count" -gt 0 ]; then
+            echo "❌ Vulnerabilities found! Failing the workflow."
+            exit 1
+          fi
+  # This assumes codeql-results.sarif is the output file from the analysis step.

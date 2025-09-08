@@ -5,9 +5,19 @@ from flask import Flask, request, make_response
 
 app = Flask(__name__)
 
+
 # 1. Hardcoded credentials (CWE-798)
 DB_USER = "admin"
 DB_PASS = "password123"
+
+# 1. Command Injection (CWE-77)
+@app.route("/ping")
+def ping():
+    ip = request.args.get("ip")
+    # ⚠️ Vulnerable: unsanitized user input in os.system
+    os.system("ping -c 1  " + ip)
+    return "Pinging " + ip
+
 
 # 2. Weak cryptography (CWE-327)
 import hashlib
