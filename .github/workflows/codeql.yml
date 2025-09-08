@@ -70,8 +70,8 @@ jobs:
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
-      with:
-        category: "/language:multi"
+      # with:
+      #   category: "/language:multi"
           
         # languages: ${{ matrix.language }}
         # build-mode: ${{ matrix.build-mode }}
@@ -100,8 +100,8 @@ jobs:
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
-      with:
-        category: "/language:multi"
+      # with:
+      #   category: "/language:multi"
 
     - name: Move SARIF file
       run: |
