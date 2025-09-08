@@ -1,14 +1,14 @@
-# vuln_app.py
-# Intentionally vulnerable Python code for CodeQL testing
-
 import os
+import sqlite3
 import subprocess
-import pickle
-import hashlib
-import requests
-from flask import Flask, request
+from flask import Flask, request, make_response
 
 app = Flask(__name__)
+
+
+# 1. Hardcoded credentials (CWE-798)
+DB_USER = "admin"
+DB_PASS = "password123"
 
 # 1. Command Injection (CWE-77)
 @app.route("/ping")
@@ -18,79 +18,69 @@ def ping():
     os.system("ping -c 1  " + ip)
     return "Pinging " + ip
 
-# 2. SQL Injection (CWE-89)
-import sqlite3
-@app.route("/user")
-def get_user():
-    uid = request.args.get("id")
-    conn = sqlite3.connect("test.db")
-    cur = conn.cursor()
-    # ⚠️ Vulnerable: string concatenation in SQL query
-    cur.execute("SELECT * FROM users WHERE id = " + uid)
-    return str(cur.fetchall())
 
-# 3. Path Traversal (CWE-22)
+# 2. Weak cryptography (CWE-327)
+import hashlib
+def weak_hash(password):
+    return hashlib.md5(password.encode()).hexdigest()
+
+# 3. SQL Injection (CWE-89)
+def get_user(username):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    query = f"SELECT * FROM users WHERE username = '{username}'"  # vulnerable
+    cursor.execute(query)
+    return cursor.fetchall()
+
+# 4. Command Injection (CWE-78)
+def run_ping(ip):
+    return os.system("ping -c 1 " + ip)  # no sanitization
+
+# 5. Path Traversal (CWE-22)
 @app.route("/read")
 def read_file():
     filename = request.args.get("file")
-    # ⚠️ Vulnerable: allows ../../etc/passwd
-    with open("uploads/" + filename, "r") as f:
+    with open(filename, "r") as f:  # attacker can read /etc/passwd
         return f.read()
 
-# 4. Insecure Deserialization (CWE-502)
-@app.route("/load")
-def load_pickle():
-    data = request.args.get("data")
-    # ⚠️ Vulnerable: pickle.loads on untrusted input
-    obj = pickle.loads(bytes.fromhex(data))
-    return str(obj)
-
-# 5. Hardcoded Credentials (CWE-798)
-API_KEY = "12345-SECRET-HARDCODED"  # ⚠️ Vulnerable: secret in source code
-
-# 6. Weak Hashing (CWE-327)
-def hash_password(pwd):
-    # ⚠️ Vulnerable: MD5 is weak
-    return hashlib.md5(pwd.encode()).hexdigest()
-
-# 7. Insecure Randomness (CWE-338)
-import random
-def generate_token():
-    # ⚠️ Vulnerable: predictable random
-    return str(random.randint(1000, 9999))
-
-# 8. SSRF - Server-Side Request Forgery (CWE-918)
-@app.route("/fetch")
-def fetch():
-    url = request.args.get("url")
-    # ⚠️ Vulnerable: user controls target URL
-    r = requests.get(url)
-    return r.text
-
-# 9. XSS - Cross Site Scripting (CWE-79)
+# 6. XSS (CWE-79)
 @app.route("/greet")
 def greet():
     name = request.args.get("name")
-    # ⚠️ Vulnerable: directly rendered user input
-    return f"<h1>Hello {name}</h1>"
+    return f"<h1>Hello {name}</h1>"  # unsanitized HTML output
 
-# 10. Open Redirect (CWE-601)
-from flask import redirect
-@app.route("/redirect")
-def redir():
-    target = request.args.get("url")
-    # ⚠️ Vulnerable: open redirect
-    return redirect(target)
+# 7. Insecure Deserialization (CWE-502)
+import pickle
+@app.route("/load")
+def load_data():
+    data = request.args.get("data")
+    obj = pickle.loads(bytes.fromhex(data))  # unsafe
+    return str(obj)
 
-# 11. Use of eval (CWE-94)
+# 8. Insecure Randomness (CWE-330)
+import random
+def reset_token():
+    return str(random.randint(1000, 9999))  # predictable token
+
+# 9. Information Exposure (CWE-200)
+@app.route("/debug")
+def debug():
+    return str(request.__dict__)  # leaks internal server info
+
+# 10. Lack of Authentication (CWE-306)
+@app.route("/admin")
+def admin_panel():
+    return "Sensitive admin data!"  # no authentication check
+
+# 11. Unrestricted File Upload (CWE-434)
+@app.route("/upload", methods=["POST"])
+def upload():
+    file = request.files["file"]
+    file.save(f"./uploads/{file.filename}")  # attacker can upload .py and execute
+    return "Uploaded!"
+
+# 12. Use of eval() on user input (CWE-94)
 @app.route("/calc")
 def calc():
     expr = request.args.get("expr")
-    # ⚠️ Vulnerable: remote code execution
-    return str(eval(expr))
-
-# 12. Missing Authentication (CWE-306)
-@app.route("/admin")
-def admin():
-    # ⚠️ Vulnerable: no authentication check
-    return "Welcome admin! Dangerous function exposed."
+    return str(eval(expr))  # attacker can run system commands
