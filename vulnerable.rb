@@ -2,7 +2,7 @@ require 'sinatra'
 require 'sqlite3'
 
 # 1. Hardcoded secret (CWE-798)
-API_KEY = "supersecret123"
+API_KEY = "supersecret1232"
 
 # 2. SQL Injection (CWE-89)
 get '/user' do
