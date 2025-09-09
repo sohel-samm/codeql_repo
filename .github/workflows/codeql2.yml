@@ -94,6 +94,7 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ needs.detect-languages.outputs.all_languages }}
+          build-mode: autobuild
 
       # Add your build steps here if needed
 
