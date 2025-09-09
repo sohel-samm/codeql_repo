@@ -1,0 +1,107 @@
+name: "CodeQL Scan: All Detected Languages"
+
+on:
+  pull_request:
+
+jobs:
+  detect-languages:
+    runs-on: ubuntu-latest
+    outputs:
+      all_languages: ${{ steps.combine.outputs.all_languages }}
+      new_languages: ${{ steps.combine.outputs.new_languages }}
+    steps:
+      - name: Get repo languages
+        id: repo
+        run: |
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/languages" > repo_languages.json
+          # Get all language names (CodeQL compatible)
+          declare -A qllang
+          qllang["Python"]="python"
+          qllang["JavaScript"]="javascript"
+          qllang["TypeScript"]="javascript"
+          qllang["Java"]="java-kotlin"
+          qllang["Kotlin"]="java-kotlin"
+          qllang["Ruby"]="ruby"
+          qllang["C++"]="c-cpp"
+          qllang["C"]="c-cpp"
+          qllang["C#"]="csharp"
+          qllang["Go"]="go"
+          qllang["PHP"]="php"
+          qllang["Swift"]="swift"
+          qllang["Rust"]="rust"
+          # Extract and map
+          repo_langs=$(jq -r 'keys[]' repo_languages.json | while read l; do [[ ${qllang[$l]+_} ]] && echo "${qllang[$l]}"; done | sort -u | paste -sd, -)
+          echo "repo_langs=$repo_langs" >> $GITHUB_OUTPUT
+
+      - name: Get PR changed files
+        id: prfiles
+        run: |
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" > pr_files.json
+
+      - name: Detect PR languages by extension
+        id: prlangs
+        run: |
+          declare -A ext2lang=( \
+            [js]=javascript [ts]=javascript [py]=python [java]=java-kotlin [kt]=java-kotlin \
+            [rb]=ruby [cpp]=c-cpp [cc]=c-cpp [c]=c-cpp [cs]=csharp [go]=go [php]=php \
+            [swift]=swift [rs]=rust \
+          )
+          langs=()
+          for ext in $(cat pr_files.json | jq -r '.[].filename' | awk -F. 'NF>1{print $NF}' | sort | uniq); do
+            lang="${ext2lang[$ext]}"
+            if [[ -n "$lang" && ! " ${langs[@]} " =~ " $lang " ]]; then
+              langs+=("$lang")
+            fi
+          done
+          pr_langs=$(IFS=, ; echo "${langs[*]}")
+          echo "pr_langs=$pr_langs" >> $GITHUB_OUTPUT
+
+      - name: Combine repo and PR languages
+        id: combine
+        run: |
+          repo_langs="${{ steps.repo.outputs.repo_langs }}"
+          pr_langs="${{ steps.prlangs.outputs.pr_langs }}"
+          # Combine and deduplicate
+          alllangs=$(echo "$repo_langs,$pr_langs" | tr ',' '\n' | sort | uniq | tr '\n' ',' | sed 's/,$//')
+          # Find PR-introduced languages not in repo
+          newlangs=""
+          for l in $(echo "$pr_langs" | tr ',' ' '); do
+            if [[ ! ",$repo_langs," =~ ",$l," ]]; then
+              newlangs="$newlangs,$l"
+            fi
+          done
+          newlangs=$(echo $newlangs | sed 's/^,//')
+          echo "All languages: $alllangs"
+          echo "New PR languages: $newlangs"
+          echo "all_languages=$alllangs" >> $GITHUB_OUTPUT
+          echo "new_languages=$newlangs" >> $GITHUB_OUTPUT
+
+  codeql:
+    needs: detect-languages
+    runs-on: ubuntu-latest
+    if: ${{ needs.detect-languages.outputs.all_languages != '' }}
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ needs.detect-languages.outputs.all_languages }}
+
+      # Add your build steps here if needed
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+      - name: Fail if PR introduces new language(s) (optional strict block)
+        if: ${{ needs.detect-languages.outputs.new_languages != '' }}
+        run: |
+          echo "The PR introduces new languages not present in the repo: ${{ needs.detect-languages.outputs.new_languages }}"
+          exit 1
