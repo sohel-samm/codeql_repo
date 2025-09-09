@@ -9,6 +9,8 @@ jobs:
     outputs:
       all_languages: ${{ steps.combine.outputs.all_languages }}
       new_languages: ${{ steps.combine.outputs.new_languages }}
+      build_none_languages: ${{ steps.combine.outputs.build_none_languages }}
+      build_autobuild_languages: ${{ steps.combine.outputs.build_autobuild_languages }}
     steps:
       - name: Get repo languages
         id: repo
@@ -78,6 +80,30 @@ jobs:
           echo "all_languages=$alllangs" >> $GITHUB_OUTPUT
           echo "new_languages=$newlangs" >> $GITHUB_OUTPUT
 
+            # Split into build:none and build:autobuild groups
+          build_none="python,javascript,ruby,go" # interpreted
+          build_auto="java-kotlin,csharp,c-cpp"  # compiled
+
+          none_langs=""
+          auto_langs=""
+          for l in $(echo "$alllangs" | tr ',' ' '); do
+            if [[ ",$build_none," =~ ",$l," ]]; then
+              none_langs="$none_langs,$l"
+            elif [[ ",$build_auto," =~ ",$l," ]]; then
+              auto_langs="$auto_langs,$l"
+            fi
+          done
+          none_langs=$(echo $none_langs | sed 's/^,//')
+          auto_langs=$(echo $auto_langs | sed 's/^,//')
+
+          
+          echo "Languages requiring build:none: $none_langs"
+          echo "Languages requiring build:autobuild: $auto_langs"
+
+          
+          echo "build_none_languages=$none_langs" >> $GITHUB_OUTPUT
+          echo "build_autobuild_languages=$auto_langs" >> $GITHUB_OUTPUT
+
   codeql:
     needs: detect-languages
     runs-on: ubuntu-latest
@@ -90,10 +116,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Initialize CodeQL
+      - name: Initialize CodeQL compiled lang
         uses: github/codeql-action/init@v3
         with:
-          languages: ${{ needs.detect-languages.outputs.all_languages }}
+          languages: ${{ needs.detect-languages.outputs.build_autobuild_languages }}
+          build-mode: autobuild
+
+      - name: Perform CodeQL Analysis compiled lang
+        uses: github/codeql-action/analyze@v3
+          
+      - name: Initialize CodeQL intrepreted
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ needs.detect-languages.outputs.build_none_languages }}
+          build-mode: none
 
       # Add your build steps here if needed
 
