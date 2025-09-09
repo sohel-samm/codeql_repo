@@ -116,11 +116,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Initialize CodeQL
+      - name: Initialize CodeQL compiled lang
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ needs.detect-languages.outputs.build_autobuild_languages }}
           build-mode: autobuild
+
+      - name: Perform CodeQL Analysis compiled lang
+        uses: github/codeql-action/analyze@v3
           
       - name: Initialize CodeQL intrepreted
         uses: github/codeql-action/init@v3
