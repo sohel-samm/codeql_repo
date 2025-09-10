@@ -106,6 +106,8 @@ jobs:
     - name: Move SARIF file
       run: |
         cp /home/runner/work/_temp/combined-sarif/output-*/combined-sarif.sarif $GITHUB_WORKSPACE/combined-sarif.sarif
+        cat combined-sarif.sarif | jq .
+
 
     - name: Check for CodeQL alerts
       run: |
