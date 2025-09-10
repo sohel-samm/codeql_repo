@@ -55,6 +55,48 @@ app.get("/debug", (req, res) => {
   res.send(process.env); // ❌ leaks environment variables
 });
 
+// 9. Remote Code Execution via eval() (CWE-94)
+app.get("/execCode", (req, res) => {
+  let code = req.query.code;
+  res.send(eval(code)); // ❌ attacker-controlled code execution
+});
+
+// 10. Server-Side Request Forgery (SSRF) (CWE-918)
+const https = require("https");
+app.get("/fetch", (req, res) => {
+  let url = req.query.url;
+  https.get(url, (resp) => { // ❌ user-controlled request to internal services
+    let data = "";
+    resp.on("data", chunk => data += chunk);
+    resp.on("end", () => res.send(data));
+  });
+});
+
+// 11. Denial of Service (Regex DoS) (CWE-400)
+app.get("/regex", (req, res) => {
+  let input = req.query.input;
+  let regex = new RegExp("^(" + input + ")+$"); // ❌ attacker-controlled regex
+  res.send("Regex created: " + regex);
+});
+
+// 12. Broken Authentication: Hardcoded Admin Login (CWE-798)
+app.post("/login", (req, res) => {
+  let user = req.query.user;
+  let pass = req.query.pass;
+  if (user === "admin" && pass === "admin123") { // ❌ hardcoded weak creds
+    res.send("Welcome admin");
+  } else {
+    res.send("Invalid credentials");
+  }
+});
+
+// 13. Sensitive Data Exposure via Logging (CWE-532)
+app.post("/payment", (req, res) => {
+  let card = req.query.card;
+  console.log("Processing card: " + card); // ❌ logs sensitive info
+  res.send("Payment processed for card " + card);
+});
+
 app.listen(3000, () => {
   console.log("Vulnerable app running on http://localhost:3000");
 });
