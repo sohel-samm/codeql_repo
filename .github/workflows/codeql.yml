@@ -108,6 +108,12 @@ jobs:
         cp /home/runner/work/_temp/combined-sarif/output-*/combined-sarif.sarif $GITHUB_WORKSPACE/combined-sarif.sarif
         cat combined-sarif.sarif | jq .
 
+    - name: Upload SARIF file
+      uses: actions/upload-artifact@v4
+      with:
+          name: sarif-report
+          path: combined-sarif.sarif
+
 
     - name: Check for CodeQL alerts
       run: |
