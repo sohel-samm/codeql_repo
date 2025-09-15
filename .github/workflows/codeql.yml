@@ -70,6 +70,9 @@ jobs:
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
+      with:
+        languages: java, javascript
+        build-mode: autobuild
       # with:
       #   category: "/language:multi"
           
